@@ -9,6 +9,7 @@ import {
 } from "./componentTests.setup.ts";
 import {
   act,
+  fireEvent,
   render as reactRender,
   screen,
   waitFor,
@@ -26,6 +27,7 @@ import {
 } from "../library/shared/sectionSupport/locator/LocatorResultCard.tsx";
 import { Render, Config, resolveAllData } from "@puckeditor/core";
 import { page } from "@vitest/browser/context";
+import { getUserLocation } from "@yext/search-ui-react";
 
 vi.mock("@yext/search-ui-react", async () => {
   const actual = await vi.importActual<typeof import("@yext/search-ui-react")>(
@@ -263,7 +265,7 @@ const createLocatorFilterSearchResponse = () => ({
             matchedSubstrings: [],
             filter: {
               "builtin.location": {
-                NEAR: {
+                $near: {
                   lat: 38.895546,
                   lng: -77.069915,
                   radius: 40233,
@@ -1331,6 +1333,199 @@ describe("Locator", async () => {
       },
     },
   };
+
+  it("loads q before initialLocation and syncs selected locations with history", async () => {
+    const originalUrl = window.location.href;
+    const fixture = tests[1];
+    const document = fixture.document;
+    const fetchMock = createLocatorFetchMock(document);
+    const startingUrl = new URL(originalUrl);
+    startingUrl.search = "?initialLocation=Boston&q=Arlington&ref=campaign";
+    window.history.replaceState(window.history.state, "", startingUrl);
+
+    try {
+      let data = migrate(
+        puckConfig,
+        {
+          root: { props: { version: fixture.version } },
+          content: [{ type: "Locator", props: fixture.props }],
+        },
+        document,
+        migrationRegistry
+      );
+      data = await resolveAllData(data, puckConfig, {
+        streamDocument: document,
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      reactRender(
+        <VisualEditorProvider templateProps={{ document }}>
+          <Render config={puckConfig} data={data} />
+        </VisualEditorProvider>
+      );
+
+      const filterSearchCalls = () =>
+        fetchMock.mock.calls
+          .map(([input]) => String(input))
+          .filter((url) => url.includes("/search/filtersearch"));
+      await waitFor(() =>
+        expect(filterSearchCalls().length).toBeGreaterThan(0)
+      );
+      expect(decodeURIComponent(filterSearchCalls()[0])).toContain("Arlington");
+      expect(decodeURIComponent(filterSearchCalls()[0])).not.toContain(
+        "Boston"
+      );
+
+      const searchInput = screen.getByRole("combobox", {
+        name: "Find a Location",
+      });
+      await waitFor(() => expect(searchInput).toHaveValue("Arlington, VA"));
+      fireEvent.change(searchInput, { target: { value: "" } });
+      expect(new URL(window.location.href).searchParams.get("q")).toBe(
+        "Arlington"
+      );
+      fireEvent.change(searchInput, { target: { value: "Arlington" } });
+      const suggestion = await screen.findByRole("option", {
+        name: /Arlington, VA/,
+      });
+      await act(async () => suggestion.click());
+
+      const selectedUrl = new URL(window.location.href);
+      expect(selectedUrl.searchParams.get("q")).toBe("Arlington, VA");
+      expect(selectedUrl.searchParams.has("initialLocation")).toBe(false);
+      expect(selectedUrl.searchParams.get("ref")).toBe("campaign");
+
+      const callsBeforeBack = filterSearchCalls().length;
+      await act(async () => window.history.back());
+      await waitFor(() =>
+        expect(window.location.search).toBe(startingUrl.search)
+      );
+      await waitFor(() =>
+        expect(filterSearchCalls().length).toBeGreaterThan(callsBeforeBack)
+      );
+    } finally {
+      window.history.replaceState(window.history.state, "", originalUrl);
+    }
+  });
+
+  it("restores coordinate q without a filter search request", async () => {
+    const originalUrl = window.location.href;
+    const fixture = tests[1];
+    const fetchMock = createLocatorFetchMock(fixture.document);
+    const startingUrl = new URL(originalUrl);
+    startingUrl.search =
+      "?initialLocation=Boston&q=38.895546%2C-77.069915%2C40233&ref=campaign";
+    window.history.replaceState(window.history.state, "", startingUrl);
+
+    try {
+      let data = migrate(
+        puckConfig,
+        {
+          root: { props: { version: fixture.version } },
+          content: [{ type: "Locator", props: fixture.props }],
+        },
+        fixture.document,
+        migrationRegistry
+      );
+      data = await resolveAllData(data, puckConfig, {
+        streamDocument: fixture.document,
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      reactRender(
+        <VisualEditorProvider templateProps={{ document: fixture.document }}>
+          <Render config={puckConfig} data={data} />
+        </VisualEditorProvider>
+      );
+
+      await waitFor(() =>
+        expect(
+          fetchMock.mock.calls.some(([input]) =>
+            String(input).includes("/search/vertical/query")
+          )
+        ).toBe(true)
+      );
+      expect(
+        fetchMock.mock.calls.some(([input]) =>
+          String(input).includes("/search/filtersearch")
+        )
+      ).toBe(false);
+      expect(screen.getByText(/Custom Search Area/)).toBeInTheDocument();
+    } finally {
+      window.history.replaceState(window.history.state, "", originalUrl);
+    }
+  });
+
+  it("writes current-location coordinates to q without another lookup", async () => {
+    const originalUrl = window.location.href;
+    const fixture = tests[1];
+    const startingUrl = new URL(originalUrl);
+    startingUrl.search = "?ref=campaign";
+    window.history.replaceState(window.history.state, "", startingUrl);
+    const position = {
+      coords: { latitude: 38.895546, longitude: -77.069915, accuracy: 10 },
+    } as GeolocationPosition;
+    vi.mocked(getUserLocation).mockResolvedValue(position);
+    const getCurrentPosition = vi
+      .spyOn(navigator.geolocation, "getCurrentPosition")
+      .mockImplementation((success) => success(position));
+    const fetchMock = createLocatorFetchMock(fixture.document);
+    const mapboxFetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ features: [{ place_name: "Arlington, VA" }] }),
+          { status: 200 }
+        )
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request) =>
+        String(input).includes("api.mapbox.com/geocoding")
+          ? mapboxFetch()
+          : fetchMock(input)
+      )
+    );
+
+    try {
+      let data = migrate(
+        puckConfig,
+        {
+          root: { props: { version: fixture.version } },
+          content: [{ type: "Locator", props: fixture.props }],
+        },
+        fixture.document,
+        migrationRegistry
+      );
+      data = await resolveAllData(data, puckConfig, {
+        streamDocument: fixture.document,
+      });
+      reactRender(
+        <VisualEditorProvider templateProps={{ document: fixture.document }}>
+          <Render config={puckConfig} data={data} />
+        </VisualEditorProvider>
+      );
+
+      const currentLocationButton = await screen.findByRole("button", {
+        name: "Use Current Location",
+      });
+      const lookupsBeforeClick = mapboxFetch.mock.calls.length;
+      await act(async () => currentLocationButton.click());
+      await waitFor(() =>
+        expect(new URL(window.location.href).searchParams.get("q")).toBe(
+          "38.895546,-77.069915,40233.6"
+        )
+      );
+      expect(mapboxFetch.mock.calls.length).toBe(lookupsBeforeClick);
+      expect(new URL(window.location.href).searchParams.get("ref")).toBe(
+        "campaign"
+      );
+    } finally {
+      getCurrentPosition.mockRestore();
+      vi.mocked(getUserLocation).mockRejectedValue(
+        new Error("Locator screenshot tests use fixture search data.")
+      );
+      window.history.replaceState(window.history.state, "", originalUrl);
+    }
+  });
 
   it("provides accessible result card controls and icons", async () => {
     const fixtureResult = DEFAULT_LOCATOR_RESULTS[0];
