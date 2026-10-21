@@ -27,6 +27,10 @@ import { useTranslation } from "react-i18next";
 import { FaChevronUp, FaDotCircle, FaRegCircle, FaTimes } from "react-icons/fa";
 import { Body } from "../atoms/body.tsx";
 import { translateDistanceUnit } from "./Results.tsx";
+import {
+  LocatorStaticFilters,
+  type LocatorStaticFilter,
+} from "./StaticFilters";
 
 export const LOCATION_FIELD = "builtin.location";
 export const COUNTRY_CODE_FIELD = "address.countryCode";
@@ -46,6 +50,8 @@ interface FilterModalProps {
   handleClearFiltersClick: () => void;
   accentColorCssValue: string;
   keywordsDisplayName?: TranslatableString;
+  staticFields?: LocatorStaticFilter[];
+  entityTypes?: LocatorEntityType[];
 }
 
 export const FilterModal = ({
@@ -58,6 +64,8 @@ export const FilterModal = ({
   handleClearFiltersClick,
   accentColorCssValue,
   keywordsDisplayName,
+  staticFields = [],
+  entityTypes = ["location"],
 }: FilterModalProps) => {
   const { t, i18n } = useTranslation();
   const closeButtonRef = React.useRef<HTMLButtonElement>(null);
@@ -138,6 +146,12 @@ export const FilterModal = ({
               onChange={handleDistanceClick}
               selectedDistanceOption={selectedDistanceOption}
               accentColorCssValue={accentColorCssValue}
+            />
+          )}
+          {staticFields.length > 0 && (
+            <LocatorStaticFilters
+              fields={staticFields}
+              entityTypes={entityTypes}
             />
           )}
           <Facets
@@ -566,15 +580,6 @@ const isLocationNearFilter = (filter: SelectableStaticFilter) =>
   filter.filter.matcher === Matcher.Near;
 
 /**
- * Returns true if the given filter is an "open at" filter on the builtin.hours field; otherwise,
- * returns false.
- */
-const isOpenNowFilter = (filter: SelectableStaticFilter) =>
-  filter.filter.kind === "fieldValue" &&
-  filter.filter.fieldId === HOURS_FIELD &&
-  filter.filter.matcher === Matcher.OpenAt;
-
-/**
  * Builds a "near" static filter on the builtin.location field from a previous near filter
  * value, with optional overrides for display name and radius
  */
@@ -672,21 +677,36 @@ export function updateRadiusInNearFiltersOnLocationField(
   });
 }
 
-/**
- * Helper function to iterate through a list of static filters and set the selected field to
- * false on any Open Now filters.
- */
-export function deselectOpenNowFilters(
+/** Replaces location controls while retaining visitor-selected filters on other fields. */
+export function replaceLocationFilters(
+  filters: SelectableStaticFilter[],
+  locationFilter: SelectableStaticFilter,
+  openNowFilter?: SelectableStaticFilter
+): SelectableStaticFilter[] {
+  const replacedFields = [LOCATION_FIELD, "builtin.region", COUNTRY_CODE_FIELD];
+  if (openNowFilter) {
+    replacedFields.push(HOURS_FIELD);
+  }
+  return [
+    ...filters.filter(
+      ({ filter }) =>
+        filter.kind !== "fieldValue" || !replacedFields.includes(filter.fieldId)
+    ),
+    locationFilter,
+    ...(openNowFilter ? [openNowFilter] : []),
+  ];
+}
+
+/** Clears refinements while preserving the search location. */
+export function clearLocatorFilters(
   filters: SelectableStaticFilter[]
 ): SelectableStaticFilter[] {
-  return filters.map((filter) => {
-    if (isOpenNowFilter(filter)) {
-      return {
-        ...filter,
-        selected: false,
-      };
-    }
-
-    return filter;
-  });
+  return filters.map((filter) =>
+    filter.filter.kind === "fieldValue" &&
+    [LOCATION_FIELD, "builtin.region", COUNTRY_CODE_FIELD].includes(
+      filter.filter.fieldId
+    )
+      ? filter
+      : { ...filter, selected: false }
+  );
 }

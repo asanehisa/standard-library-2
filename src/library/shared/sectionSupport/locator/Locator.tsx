@@ -30,6 +30,7 @@ import {
 } from "./LocatorResultCard";
 import { ResultCardPropsField } from "./Results";
 import { LocatorWrapper } from "./LocatorWrapper";
+import { StaticFilterFields, type LocatorStaticFilter } from "./StaticFilters";
 import {
   DEFAULT_LOCATION_STYLE,
   DEFAULT_MAKI_ICON_NAME,
@@ -94,6 +95,8 @@ export interface LocatorProps {
     accentColor?: ThemeColor;
     /** Which fields are facetable in the search experience. */
     facetFields?: MultiSelectorValue<string>;
+    /** Fields enabled as static filters in Search, shown as visitor autocomplete controls. */
+    staticFields?: LocatorStaticFilter[];
     /** The optional display name for the Keywords facet. */
     keywordsDisplayName?: TranslatableString;
   };
@@ -328,6 +331,13 @@ const locatorFields: YextFields<LocatorProps> = {
           "Select a field"
         ),
       } as any, // TODO(SUMO-8378): remove 'as any' when puck fixes objectFields typing
+      staticFields: {
+        type: "custom",
+        label: msg("fields.staticFilters", "Static Filters"),
+        render: (props: YextCustomFieldRenderProps<LocatorStaticFilter[]>) => (
+          <StaticFilterFields {...props} />
+        ),
+      },
       keywordsDisplayName: {
         type: "translatableString",
         label: msg("fields.keywordsDisplayName", "Keywords Display Name"),
@@ -458,6 +468,7 @@ export const LocatorComponent: YextComponentConfig<LocatorProps> = {
     filters: {
       openNowButton: false,
       showDistanceOptions: false,
+      staticFields: [],
     },
     pageHeading: {
       title: { defaultValue: DEFAULT_TITLE },

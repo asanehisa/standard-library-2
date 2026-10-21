@@ -65,7 +65,8 @@ import {
   buildEqualsLocationFilter,
   buildNearLocationFilterFromCoords,
   buildNearLocationFilterFromPrevious,
-  deselectOpenNowFilters,
+  clearLocatorFilters,
+  replaceLocationFilters,
   HOURS_FIELD,
   updateRadiusInNearFiltersOnLocationField,
 } from "./Filters.tsx";
@@ -158,18 +159,21 @@ export const LocatorWrapper = (props: WithPuckProps<LocatorProps>) => {
 const LocatorInternal = ({
   mapStyle,
   locationStyles,
-  filters: {
-    openNowButton,
-    showDistanceOptions,
-    accentColor,
-    facetFields,
-    keywordsDisplayName,
-  },
+  filters,
   mapStartingLocation,
   resultCard: resultCardConfigs,
   distanceDisplay,
   pageHeading,
 }: LocatorProps) => {
+  const {
+    openNowButton,
+    showDistanceOptions,
+    accentColor,
+    facetFields,
+    keywordsDisplayName,
+  } = filters ?? {};
+  const staticFields = filters?.staticFields ?? [];
+
   // Adds unified [enable|disable]YextAnalytics to the window for both Pages and Search
   // analytics. Typically used during consent banner implementation.
   const searchAnalytics = useSearchAnalytics();
@@ -297,7 +301,13 @@ const LocatorInternal = ({
         },
       };
       apiFilterRadius.current = mapRadius;
-      searchActions.setStaticFilters([locationFilter, openNowFilter]);
+      searchActions.setStaticFilters(
+        replaceLocationFilters(
+          searchFilters.static || [],
+          locationFilter,
+          openNowFilter
+        )
+      );
       searchActions.executeVerticalQuery();
       setSearchState("loading");
       setShowSearchAreaButton(false);
@@ -322,15 +332,10 @@ const LocatorInternal = ({
       t("currentLocation", "Current Location")
     );
     apiFilterRadius.current = radius;
-    const nonLocationFilters = (searchFilters.static || []).filter(
-      (staticFilter) =>
-        staticFilter.filter.kind !== "fieldValue" ||
-        ![LOCATION_FIELD, "builtin.region", COUNTRY_CODE_FIELD].includes(
-          staticFilter.filter.fieldId
-        )
-    );
     searchActions.setOffset(0);
-    searchActions.setStaticFilters([...nonLocationFilters, locationFilter]);
+    searchActions.setStaticFilters(
+      replaceLocationFilters(searchFilters.static || [], locationFilter)
+    );
     searchActions.executeVerticalQuery();
     setSearchState("loading");
     updateLocationQuery(formatCoordinateQuery(latitude, longitude, radius));
@@ -391,7 +396,13 @@ const LocatorInternal = ({
     }
 
     searchActions.setOffset(0);
-    searchActions.setStaticFilters([locationFilter, openNowFilter]);
+    searchActions.setStaticFilters(
+      replaceLocationFilters(
+        searchFilters.static || [],
+        locationFilter,
+        openNowFilter
+      )
+    );
     searchActions.executeVerticalQuery();
     setSearchState("loading");
     updateLocationQuery(newDisplayName);
@@ -620,9 +631,11 @@ const LocatorInternal = ({
         searchActions.setVerticalLimit(RESULTS_LIMIT);
         searchActions.setOffset(0);
         searchActions.setStaticFilters(
-          urlNavigationVersion === 0
-            ? [initialLocationFilter]
-            : [initialLocationFilter, openNowFilter]
+          replaceLocationFilters(
+            searchActions.state.filters.static || [],
+            initialLocationFilter,
+            urlNavigationVersion === 0 ? undefined : openNowFilter
+          )
         );
         searchActions.executeVerticalQuery();
         setSearchState("loading");
@@ -897,7 +910,7 @@ const LocatorInternal = ({
       existingFilters,
       apiFilterRadius.current ?? toMeters(DEFAULT_RADIUS, preferredUnit)
     );
-    const updatedFilters = deselectOpenNowFilters(partiallyUpdatedFilters);
+    const updatedFilters = clearLocatorFilters(partiallyUpdatedFilters);
 
     // Both open now and distance filters must be updated in the same setStaticFilters call to
     // avoid problems due to the asynchronous nature of state updates.
@@ -933,7 +946,10 @@ const LocatorInternal = ({
       ) ?? []
     ).length > 0;
   const hasFilterModalToggle =
-    openNowButton || showDistanceOptions || hasFacetOptions;
+    openNowButton ||
+    showDistanceOptions ||
+    hasFacetOptions ||
+    staticFields.some((field) => !!field.fieldId);
   const filterAccentColorCssVariable =
     getThemeColorCssValue(accentColor?.selectedColor) ??
     "var(--colors-palette-primary-dark)";
@@ -1090,6 +1106,8 @@ const LocatorInternal = ({
               handleClearFiltersClick={handleClearFiltersClick}
               accentColorCssValue={filterAccentColorCssVariable}
               keywordsDisplayName={keywordsDisplayName}
+              staticFields={staticFields}
+              entityTypes={entityTypes}
             />
           </div>
         </div>
