@@ -87,6 +87,8 @@
   "openNow": "Otwarte teraz",
   "opensAtTime": "Otwarte o {{time}}",
   "opensAtTimeWeek": "Otwarte o {{time}} {{dayOfWeek}}",
+  "optInStatus": "Status zgody",
+  "optedIn": "Zgoda udzielona",
   "phone": "Telefon",
   "photoGallery": "Galeria zdjęć",
   "primaryHeaderLinks": "Podstawowe linki nagłówkowe",

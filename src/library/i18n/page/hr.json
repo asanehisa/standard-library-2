@@ -82,6 +82,8 @@
   "openNow": "Otvori sada",
   "opensAtTime": "Otvara se u {{time}}",
   "opensAtTimeWeek": "Otvara se u {{time}} {{dayOfWeek}}",
+  "optInStatus": "Status pristanka",
+  "optedIn": "Pristanak dan",
   "phone": "Telefon",
   "photoGallery": "Fotogalerija",
   "primaryHeaderLinks": "Primarne veze zaglavlja",

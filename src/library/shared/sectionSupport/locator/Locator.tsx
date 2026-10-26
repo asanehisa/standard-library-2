@@ -84,6 +84,8 @@ export interface LocatorProps {
      * @defaultValue false
      */
     openNowButton: boolean;
+    /** Whether to offer a filter for c_testCustom.optedIn = true. Defaults to false. */
+    optedInButton?: boolean;
     /**
      * If 'true', displays several distance options to filter searches to only locations within
      * a certain radius.
@@ -297,6 +299,14 @@ const locatorFields: YextFields<LocatorProps> = {
           { label: msg("fields.options.no", "No"), value: false },
         ],
       },
+      optedInButton: {
+        label: msg("fields.options.includeOptedIn", "Include Opted In Filter"),
+        type: "radio",
+        options: [
+          { label: msg("fields.options.yes", "Yes"), value: true },
+          { label: msg("fields.options.no", "No"), value: false },
+        ],
+      },
       showDistanceOptions: {
         label: msg(
           "fields.options.showDistanceOptions",
@@ -457,6 +467,7 @@ export const LocatorComponent: YextComponentConfig<LocatorProps> = {
     resultCard: [],
     filters: {
       openNowButton: false,
+      optedInButton: false,
       showDistanceOptions: false,
     },
     pageHeading: {

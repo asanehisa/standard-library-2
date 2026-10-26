@@ -87,6 +87,8 @@
   "openNow": "Teraz",
   "opensAtTime": "Otvára sa o {{time}}",
   "opensAtTimeWeek": "Otvára sa o {{time}} {{dayOfWeek}}",
+  "optInStatus": "Stav súhlasu",
+  "optedIn": "Súhlas udelený",
   "phone": "Telefón",
   "photoGallery": "Fotogaléria",
   "primaryHeaderLinks": "Primárne odkazy hlavičky",

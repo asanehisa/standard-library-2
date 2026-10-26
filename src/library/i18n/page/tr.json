@@ -77,6 +77,8 @@
   "openNow": "Şu anda açık",
   "opensAtTime": "{{time}}'da açılıyor",
   "opensAtTimeWeek": "{{time}} {{dayOfWeek}}'da açılıyor",
+  "optInStatus": "Onay durumu",
+  "optedIn": "Onay verildi",
   "phone": "Telefon",
   "photoGallery": "Fotoğraf Galeri",
   "primaryHeaderLinks": "Birincil Başlık Bağlantıları",

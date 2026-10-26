@@ -82,6 +82,8 @@
   "openNow": "Deschide acum",
   "opensAtTime": "Se deschide la {{time}}",
   "opensAtTimeWeek": "Se deschide la {{time}} {{dayOfWeek}}",
+  "optInStatus": "Starea consimțământului",
+  "optedIn": "Consimțământ acordat",
   "phone": "Telefon",
   "photoGallery": "Galerie foto",
   "primaryHeaderLinks": "Linkuri antet primare",

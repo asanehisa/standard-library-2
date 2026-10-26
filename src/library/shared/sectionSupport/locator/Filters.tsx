@@ -31,6 +31,7 @@ import { translateDistanceUnit } from "./Results.tsx";
 export const LOCATION_FIELD = "builtin.location";
 export const COUNTRY_CODE_FIELD = "address.countryCode";
 export const HOURS_FIELD = "builtin.hours";
+export const OPTED_IN_FIELD = "c_testCustom.optedIn";
 export const KEYWORDS_FIELD = "keywords";
 
 interface FilterModalProps {
@@ -39,6 +40,9 @@ interface FilterModalProps {
   showDistanceOptions: boolean; // whether to show the Distance filter option
   selectedDistanceOption: number | null;
   handleOpenNowClick: (selected: boolean) => void;
+  showOptedInOption: boolean;
+  isOptedInSelected: boolean;
+  handleOptedInClick: (selected: boolean) => void;
   handleDistanceClick: (
     distance: number,
     distanceUnit: "mile" | "kilometer"
@@ -54,6 +58,9 @@ export const FilterModal = ({
   showDistanceOptions,
   selectedDistanceOption,
   handleOpenNowClick,
+  showOptedInOption,
+  isOptedInSelected,
+  handleOptedInClick,
   handleDistanceClick,
   handleClearFiltersClick,
   accentColorCssValue,
@@ -128,9 +135,19 @@ export const FilterModal = ({
       <div className="flex flex-col p-6 gap-6 overflow-y-auto">
         <div className="flex flex-col gap-8">
           {showOpenNowOption && (
-            <OpenNowFilter
+            <ToggleFilter
+              heading={t("hours", "Hours")}
+              label={t("openNow", "Open Now")}
               isSelected={isOpenNowSelected}
               onChange={handleOpenNowClick}
+            />
+          )}
+          {showOptedInOption && (
+            <ToggleFilter
+              heading={t("optInStatus", "Opt-In Status")}
+              label={t("optedIn", "Opted In")}
+              isSelected={isOptedInSelected}
+              onChange={handleOptedInClick}
             />
           )}
           {showDistanceOptions && (
@@ -167,13 +184,19 @@ export const FilterModal = ({
   );
 };
 
-interface OpenNowFilterProps {
+interface ToggleFilterProps {
+  heading: string;
+  label: string;
   isSelected: boolean;
   onChange: (selected: boolean) => void;
 }
 
-const OpenNowFilter = ({ isSelected, onChange }: OpenNowFilterProps) => {
-  const { t } = useTranslation();
+const ToggleFilter = ({
+  heading,
+  label,
+  isSelected,
+  onChange,
+}: ToggleFilterProps) => {
   const { isExpanded, getToggleProps, getCollapseProps } = useCollapse({
     defaultExpanded: true,
   });
@@ -181,21 +204,21 @@ const OpenNowFilter = ({ isSelected, onChange }: OpenNowFilterProps) => {
     ? "w-3 text-gray-400"
     : "w-3 text-gray-400 transform rotate-180";
 
-  const openNowCheckBoxId = "openNowCheckBox";
+  const checkboxId = React.useId();
   return (
     <div className="flex flex-col gap-4">
       <button
         className="w-full flex justify-between items-center font-bold font-body-fontFamily text-body-fontSize"
         {...getToggleProps()}
       >
-        {t("hours", "Hours")}
+        {heading}
         <FaChevronUp className={iconClassName} />
       </button>
       <div className="flex flex-row gap-1" {...getCollapseProps()}>
         <div className="inline-flex items-center gap-4">
           <input
             type="checkbox"
-            id={openNowCheckBoxId}
+            id={checkboxId}
             checked={isSelected}
             className={
               "w-4 h-4 form-checkbox cursor-pointer border border-gray-300" +
@@ -203,8 +226,8 @@ const OpenNowFilter = ({ isSelected, onChange }: OpenNowFilterProps) => {
             }
             onChange={() => onChange(!isSelected)}
           />
-          <label htmlFor={openNowCheckBoxId}>
-            <Body>{t("openNow", "Open Now")}</Body>
+          <label htmlFor={checkboxId}>
+            <Body>{label}</Body>
           </label>
         </div>
       </div>
@@ -573,6 +596,12 @@ const isOpenNowFilter = (filter: SelectableStaticFilter) =>
   filter.filter.kind === "fieldValue" &&
   filter.filter.fieldId === HOURS_FIELD &&
   filter.filter.matcher === Matcher.OpenAt;
+
+export const isOptedInFilter = (filter: SelectableStaticFilter) =>
+  filter.filter.kind === "fieldValue" &&
+  filter.filter.fieldId === OPTED_IN_FIELD &&
+  filter.filter.matcher === Matcher.Equals &&
+  filter.filter.value === true;
 
 /**
  * Builds a "near" static filter on the builtin.location field from a previous near filter

@@ -77,6 +77,8 @@
   "openNow": "Öppet nu",
   "opensAtTime": "Öppnar kl. {{time}}",
   "opensAtTimeWeek": "Öppnar kl. {{time}} {{dayOfWeek}}",
+  "optInStatus": "Samtyckesstatus",
+  "optedIn": "Samtycke givet",
   "phone": "Telefon",
   "photoGallery": "Fotogalleri",
   "primaryHeaderLinks": "Primära rubriklänkar",

@@ -77,6 +77,8 @@
   "openNow": "Nu open",
   "opensAtTime": "Opent om {{time}}",
   "opensAtTimeWeek": "Opent om {{time}} {{dayOfWeek}}",
+  "optInStatus": "Toestemmingsstatus",
+  "optedIn": "Toestemming gegeven",
   "phone": "Telefoon",
   "photoGallery": "Fotogalerij",
   "primaryHeaderLinks": "Primaire koptekstkoppelingen",

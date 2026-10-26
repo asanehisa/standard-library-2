@@ -67,6 +67,8 @@ import {
   buildNearLocationFilterFromPrevious,
   deselectOpenNowFilters,
   HOURS_FIELD,
+  OPTED_IN_FIELD,
+  isOptedInFilter,
   updateRadiusInNearFiltersOnLocationField,
 } from "./Filters.tsx";
 import {
@@ -160,6 +162,7 @@ const LocatorInternal = ({
   locationStyles,
   filters: {
     openNowButton,
+    optedInButton = false,
     showDistanceOptions,
     accentColor,
     facetFields,
@@ -277,6 +280,20 @@ const LocatorInternal = ({
 
   const searchActions = useSearchActions();
   const searchFilters = useSearchState((state) => state.filters);
+  const isOptedInSelected =
+    searchFilters.static?.some(
+      (filter) => filter.selected && isOptedInFilter(filter)
+    ) ?? false;
+  const optedInFilter: SelectableStaticFilter = {
+    filter: {
+      kind: "fieldValue",
+      fieldId: OPTED_IN_FIELD,
+      matcher: Matcher.Equals,
+      value: true,
+    },
+    selected: isOptedInSelected,
+    displayName: t("optedIn", "Opted In"),
+  };
 
   const handleSearchAreaClick = () => {
     if (mapCenter && mapRadius) {
@@ -297,7 +314,11 @@ const LocatorInternal = ({
         },
       };
       apiFilterRadius.current = mapRadius;
-      searchActions.setStaticFilters([locationFilter, openNowFilter]);
+      searchActions.setStaticFilters([
+        locationFilter,
+        openNowFilter,
+        ...(optedInButton ? [optedInFilter] : []),
+      ]);
       searchActions.executeVerticalQuery();
       setSearchState("loading");
       setShowSearchAreaButton(false);
@@ -391,7 +412,11 @@ const LocatorInternal = ({
     }
 
     searchActions.setOffset(0);
-    searchActions.setStaticFilters([locationFilter, openNowFilter]);
+    searchActions.setStaticFilters([
+      locationFilter,
+      openNowFilter,
+      ...(optedInButton ? [optedInFilter] : []),
+    ]);
     searchActions.executeVerticalQuery();
     setSearchState("loading");
     updateLocationQuery(newDisplayName);
@@ -622,7 +647,11 @@ const LocatorInternal = ({
         searchActions.setStaticFilters(
           urlNavigationVersion === 0
             ? [initialLocationFilter]
-            : [initialLocationFilter, openNowFilter]
+            : [
+                initialLocationFilter,
+                openNowFilter,
+                ...(optedInButton ? [optedInFilter] : []),
+              ]
         );
         searchActions.executeVerticalQuery();
         setSearchState("loading");
@@ -810,6 +839,12 @@ const LocatorInternal = ({
     executeSearch(searchActions);
   };
 
+  const handleOptedInClick = (selected: boolean) => {
+    searchActions.setFilterOption({ ...optedInFilter, selected });
+    searchActions.setOffset(0);
+    executeSearch(searchActions);
+  };
+
   const currentOffset = useSearchState((state) => state.vertical.offset);
   const previousOffset = React.useRef<number | undefined>(undefined);
   const prevIsMobile = React.useRef(isMobile);
@@ -897,9 +932,12 @@ const LocatorInternal = ({
       existingFilters,
       apiFilterRadius.current ?? toMeters(DEFAULT_RADIUS, preferredUnit)
     );
-    const updatedFilters = deselectOpenNowFilters(partiallyUpdatedFilters);
+    const updatedFilters = deselectOpenNowFilters(partiallyUpdatedFilters).map(
+      (filter) =>
+        isOptedInFilter(filter) ? { ...filter, selected: false } : filter
+    );
 
-    // Both open now and distance filters must be updated in the same setStaticFilters call to
+    // Toggle and distance filters must be updated in the same setStaticFilters call to
     // avoid problems due to the asynchronous nature of state updates.
     searchActions.setStaticFilters(updatedFilters);
     searchActions.resetFacets();
@@ -933,7 +971,7 @@ const LocatorInternal = ({
       ) ?? []
     ).length > 0;
   const hasFilterModalToggle =
-    openNowButton || showDistanceOptions || hasFacetOptions;
+    openNowButton || optedInButton || showDistanceOptions || hasFacetOptions;
   const filterAccentColorCssVariable =
     getThemeColorCssValue(accentColor?.selectedColor) ??
     "var(--colors-palette-primary-dark)";
@@ -1084,6 +1122,9 @@ const LocatorInternal = ({
               showOpenNowOption={openNowButton}
               isOpenNowSelected={isOpenNowSelected}
               handleOpenNowClick={handleOpenNowClick}
+              showOptedInOption={optedInButton}
+              isOptedInSelected={isOptedInSelected}
+              handleOptedInClick={handleOptedInClick}
               showDistanceOptions={showDistanceOptions}
               selectedDistanceOption={selectedDistanceOption}
               handleDistanceClick={handleDistanceClick}

@@ -87,6 +87,8 @@
   "openNow": "Otevřeno",
   "opensAtTime": "Otevírá v {{time}}",
   "opensAtTimeWeek": "Otevírá v {{time}} {{dayOfWeek}}",
+  "optInStatus": "Stav souhlasu",
+  "optedIn": "Souhlas udělen",
   "phone": "Telefon",
   "photoGallery": "Fotogalerie",
   "primaryHeaderLinks": "Primární odkazy záhlaví",

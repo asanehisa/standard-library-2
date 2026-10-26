@@ -77,6 +77,8 @@
   "openNow": "Nüüd avatud",
   "opensAtTime": "Avatakse {{time}}",
   "opensAtTimeWeek": "Avatakse kell {{time}} {{dayOfWeek}}",
+  "optInStatus": "Nõusoleku olek",
+  "optedIn": "Nõusolek antud",
   "phone": "Telefon",
   "photoGallery": "Fotogalerii",
   "primaryHeaderLinks": "Peamised päise lingid",

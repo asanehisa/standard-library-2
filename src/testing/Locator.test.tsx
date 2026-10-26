@@ -29,6 +29,24 @@ import { Render, Config, resolveAllData } from "@puckeditor/core";
 import { page } from "@vitest/browser/context";
 import { getUserLocation } from "@yext/search-ui-react";
 
+const locatorMapState = vi.hoisted(() => ({
+  onDragHandler: undefined as
+    import("@yext/search-ui-react").OnDragHandler | undefined,
+}));
+
+vi.mock("../library/shared/sectionSupport/locator/Map.tsx", async () => {
+  const actual = await vi.importActual<
+    typeof import("../library/shared/sectionSupport/locator/Map.tsx")
+  >("../library/shared/sectionSupport/locator/Map.tsx");
+  return {
+    ...actual,
+    LocatorMap: (props: React.ComponentProps<typeof actual.LocatorMap>) => {
+      locatorMapState.onDragHandler = props.onDragHandler;
+      return <actual.LocatorMap {...props} />;
+    },
+  };
+});
+
 vi.mock("@yext/search-ui-react", async () => {
   const actual = await vi.importActual<typeof import("@yext/search-ui-react")>(
     "@yext/search-ui-react"
@@ -232,7 +250,10 @@ const MULTI_PAGESET_LOCATOR_RESULTS = [
   }),
 ];
 
-const createLocatorVerticalSearchResponse = (results: any[]) => ({
+const createLocatorVerticalSearchResponse = (
+  results: any[],
+  responseOverrides: Record<string, unknown> = {}
+) => ({
   meta: {
     uuid: "locator-fixture-uuid",
     errors: [],
@@ -244,6 +265,7 @@ const createLocatorVerticalSearchResponse = (results: any[]) => ({
     resultsCount: results.length,
     results,
     facets: [],
+    ...responseOverrides,
   },
 });
 
@@ -284,7 +306,10 @@ const getLocatorFixtureResults = (document: Record<string, any>) =>
     ? MULTI_PAGESET_LOCATOR_RESULTS
     : DEFAULT_LOCATOR_RESULTS;
 
-const createLocatorFetchMock = (document: Record<string, any>) => {
+const createLocatorFetchMock = (
+  document: Record<string, any>,
+  responseOverrides: Record<string, unknown> = {}
+) => {
   const results = getLocatorFixtureResults(document);
 
   return vi.fn(async (input: string | URL | Request) => {
@@ -307,7 +332,8 @@ const createLocatorFetchMock = (document: Record<string, any>) => {
                     comingSoon: true,
                   },
                 }))
-              : results
+              : results,
+            responseOverrides
           )
         ),
         {
@@ -328,6 +354,7 @@ const createLocatorFetchMock = (document: Record<string, any>) => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  locatorMapState.onDragHandler = undefined;
 });
 
 // Uses the content endpoint from
@@ -1192,6 +1219,28 @@ const tests: ComponentTest[] = [
   },
 ];
 
+tests.push({
+  ...tests[1],
+  name: "version 24 with opted in filter",
+  props: {
+    ...tests[1].props,
+    filters: {
+      openNowButton: true,
+      optedInButton: true,
+      showDistanceOptions: true,
+    },
+  },
+  interactions: async (page) => {
+    await act(async () => page.getByRole("button", { name: "Filter" }).click());
+    await act(async () =>
+      page.getByRole("checkbox", { name: "Opted In" }).click()
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("checkbox", { name: "Opted In" })).toBeChecked()
+    );
+  },
+});
+
 const wrappedSelectorValuesMigrationFixture = {
   document: {
     locale: "en",
@@ -1333,6 +1382,284 @@ describe("Locator", async () => {
       },
     },
   };
+
+  it.each([undefined, false, true])(
+    "offers Opted In as the only filter when optedInButton is %s",
+    async (optedInButton) => {
+      const fixture = tests[1];
+      const fetchMock = createLocatorFetchMock(fixture.document);
+      let data = migrate(
+        puckConfig,
+        {
+          root: { props: { version: fixture.version } },
+          content: [
+            {
+              type: "Locator",
+              props: {
+                ...fixture.props,
+                filters: {
+                  openNowButton: false,
+                  showDistanceOptions: false,
+                  optedInButton,
+                },
+              },
+            },
+          ],
+        },
+        fixture.document,
+        migrationRegistry
+      );
+      data = await resolveAllData(data, puckConfig, {
+        streamDocument: fixture.document,
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      reactRender(
+        <VisualEditorProvider templateProps={{ document: fixture.document }}>
+          <Render config={puckConfig} data={data} />
+        </VisualEditorProvider>
+      );
+      await screen.findByRole("heading", { name: "Galaxy Grill" });
+      const filterButton = screen.queryByRole("button", {
+        name: "Filter",
+      });
+      if (optedInButton) {
+        expect(filterButton).toBeInTheDocument();
+        await act(async () => filterButton!.click());
+        expect(
+          screen.getByRole("checkbox", { name: "Opted In" })
+        ).not.toBeChecked();
+      } else {
+        expect(filterButton).not.toBeInTheDocument();
+      }
+      expect(
+        fetchMock.mock.calls
+          .map(([input]) => decodeURIComponent(String(input)))
+          .join("\n")
+      ).not.toContain("c_testCustom.optedIn");
+    }
+  );
+
+  it("applies and preserves Opted In alongside other filters, and clears it through every control", async () => {
+    const originalUrl = window.location.href;
+    const fixture = tests.at(-1)!;
+    const fetchMock = createLocatorFetchMock(fixture.document, {
+      resultsCount: 60,
+      facets: [
+        {
+          fieldId: "services",
+          displayName: "Services",
+          options: [
+            {
+              displayName: "Delivery",
+              count: 2,
+              filter: { services: { $eq: "Delivery" } },
+            },
+          ],
+        },
+      ],
+    });
+    const startingUrl = new URL(originalUrl);
+    startingUrl.search = "?q=Arlington";
+    window.history.replaceState(window.history.state, "", startingUrl);
+
+    try {
+      let data = migrate(
+        puckConfig,
+        {
+          root: { props: { version: fixture.version } },
+          content: [{ type: "Locator", props: fixture.props }],
+        },
+        fixture.document,
+        migrationRegistry
+      );
+      data = await resolveAllData(data, puckConfig, {
+        streamDocument: fixture.document,
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      reactRender(
+        <VisualEditorProvider templateProps={{ document: fixture.document }}>
+          <Render config={puckConfig} data={data} />
+        </VisualEditorProvider>
+      );
+      await screen.findByRole("heading", { name: "Galaxy Grill" });
+      const latestSearch = () =>
+        new URL(
+          String(
+            fetchMock.mock.calls
+              .filter(([input]) =>
+                String(input).includes("/search/vertical/query")
+              )
+              .at(-1)![0]
+          )
+        ).searchParams;
+      const expectedOptedIn = { "c_testCustom.optedIn": { $eq: true } };
+      await act(async () =>
+        screen.getByRole("button", { name: "Filter" }).click()
+      );
+      const checkbox = screen.getByRole("checkbox", { name: "Opted In" });
+      expect(checkbox).not.toBeChecked();
+      await act(async () => checkbox.click());
+      await waitFor(() =>
+        expect(JSON.parse(latestSearch().get("filters")!)).toMatchObject({
+          $and: expect.arrayContaining([expectedOptedIn]),
+        })
+      );
+      expect(latestSearch().get("offset")).toBe("0");
+
+      await act(async () =>
+        screen.getByRole("button", { name: "Close" }).click()
+      );
+      await act(async () =>
+        screen.getByRole("button", { name: /^page 2$/i }).click()
+      );
+      expect(latestSearch().get("offset")).toBe("20");
+      expect(JSON.parse(latestSearch().get("filters")!)).toMatchObject({
+        $and: expect.arrayContaining([expectedOptedIn]),
+      });
+      await act(async () =>
+        screen.getByRole("button", { name: "Filter" }).click()
+      );
+      await act(async () =>
+        screen.getByRole("checkbox", { name: /Delivery/ }).click()
+      );
+      expect(latestSearch().get("facetFilters")).toContain("Delivery");
+      expect(JSON.parse(latestSearch().get("filters")!)).toMatchObject({
+        $and: expect.arrayContaining([expectedOptedIn]),
+      });
+
+      await act(async () =>
+        screen.getByRole("checkbox", { name: "Open Now" }).click()
+      );
+      await act(async () =>
+        screen
+          .getByRole("button", { name: "Select distance less than 5 miles" })
+          .click()
+      );
+      expect(JSON.parse(latestSearch().get("filters")!)).toMatchObject({
+        $and: expect.arrayContaining([
+          expectedOptedIn,
+          { "builtin.hours": { $openAt: "now" } },
+        ]),
+      });
+      expect(latestSearch().get("offset")).toBe("0");
+
+      await act(async () =>
+        screen.getByRole("button", { name: "Close" }).click()
+      );
+      const searchInput = screen.getByRole("combobox", {
+        name: "Find a Location",
+      });
+      fireEvent.change(searchInput, { target: { value: "Arlington" } });
+      const suggestion = await screen.findByRole("option", {
+        name: /Arlington, VA/,
+      });
+      await act(async () => suggestion.click());
+      expect(JSON.parse(latestSearch().get("filters")!)).toMatchObject({
+        $and: expect.arrayContaining([expectedOptedIn]),
+      });
+
+      const requestsBeforeBack = fetchMock.mock.calls.length;
+      await act(async () => window.history.back());
+      await waitFor(() =>
+        expect(window.location.search).toBe(startingUrl.search)
+      );
+      await waitFor(() =>
+        expect(fetchMock.mock.calls.length).toBeGreaterThan(requestsBeforeBack)
+      );
+      await waitFor(() =>
+        expect(JSON.parse(latestSearch().get("filters")!)).toMatchObject({
+          $and: expect.arrayContaining([expectedOptedIn]),
+        })
+      );
+
+      // Simulate dragging the map, then use the real Search This Area action.
+      expect(locatorMapState.onDragHandler).toBeTypeOf("function");
+      await act(async () =>
+        locatorMapState.onDragHandler!(
+          { latitude: 38.9, longitude: -77.1, distanceTo: () => 10000 } as any,
+          { getNorthEast: () => ({ lat: 39, lng: -77 }) } as any
+        )
+      );
+      await act(async () =>
+        screen.getByRole("button", { name: "Search This Area" }).click()
+      );
+      expect(JSON.parse(latestSearch().get("filters")!)).toMatchObject({
+        $and: expect.arrayContaining([expectedOptedIn]),
+      });
+
+      const geolocationSpy = vi
+        .spyOn(navigator.geolocation, "getCurrentPosition")
+        .mockImplementation((success) =>
+          success({
+            coords: { latitude: 38.8, longitude: -77.2, accuracy: 100 },
+          } as GeolocationPosition)
+        );
+      try {
+        await act(async () =>
+          screen.getByRole("button", { name: "Use Current Location" }).click()
+        );
+        expect(JSON.parse(latestSearch().get("filters")!)).toMatchObject({
+          $and: expect.arrayContaining([
+            expectedOptedIn,
+            {
+              "builtin.location": {
+                $near: expect.objectContaining({ lat: 38.8, lng: -77.2 }),
+              },
+            },
+          ]),
+        });
+      } finally {
+        geolocationSpy.mockRestore();
+      }
+
+      await act(async () =>
+        screen.getByRole("button", { name: "Filter" }).click()
+      );
+      expect(screen.getByRole("checkbox", { name: "Opted In" })).toBeChecked();
+      await act(async () =>
+        screen.getByRole("checkbox", { name: "Opted In" }).click()
+      );
+      expect(latestSearch().get("filters")).not.toContain(
+        "c_testCustom.optedIn"
+      );
+      await act(async () =>
+        screen.getByRole("checkbox", { name: "Opted In" }).click()
+      );
+      const removeButton = await screen.findAllByRole("button", {
+        name: /Remove.*Opted In/,
+      });
+      await act(async () => removeButton.at(-1)!.click());
+      await waitFor(() =>
+        expect(
+          screen.getByRole("checkbox", { name: "Opted In" })
+        ).not.toBeChecked()
+      );
+      expect(latestSearch().get("filters")).not.toContain(
+        "c_testCustom.optedIn"
+      );
+
+      await act(async () =>
+        screen.getByRole("checkbox", { name: "Opted In" }).click()
+      );
+      await act(async () =>
+        screen.getAllByRole("button", { name: "Clear All" }).at(-1)!.click()
+      );
+      await waitFor(() =>
+        expect(
+          screen.getByRole("checkbox", { name: "Opted In" })
+        ).not.toBeChecked()
+      );
+      expect(
+        screen.getByRole("checkbox", { name: "Open Now" })
+      ).not.toBeChecked();
+      expect(latestSearch().get("filters")).not.toContain(
+        "c_testCustom.optedIn"
+      );
+      expect(latestSearch().get("filters")).not.toContain("builtin.hours");
+    } finally {
+      window.history.replaceState(window.history.state, "", originalUrl);
+    }
+  });
 
   it("loads q before initialLocation and syncs selected locations with history", async () => {
     const originalUrl = window.location.href;

@@ -77,6 +77,8 @@
   "openNow": "Åben nu",
   "opensAtTime": "Åbner kl. {{time}}",
   "opensAtTimeWeek": "Åbner kl. {{time}} {{dayOfWeek}}",
+  "optInStatus": "Samtykkestatus",
+  "optedIn": "Samtykke givet",
   "phone": "Telefon",
   "photoGallery": "Fotogalleri",
   "primaryHeaderLinks": "Primære overskriftslinks",

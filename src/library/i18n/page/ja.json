@@ -77,6 +77,8 @@
   "openNow": "営業中",
   "opensAtTime": "{{time}}に開店",
   "opensAtTimeWeek": "{{time}} {{dayOfWeek}} に開店",
+  "optInStatus": "同意状況",
+  "optedIn": "同意済み",
   "phone": "電話",
   "photoGallery": "フォトギャラリー",
   "primaryHeaderLinks": "プライマリヘッダーリンク",

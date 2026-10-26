@@ -89,7 +89,8 @@ const renderFilterModal = (
   keywordsDisplayName?: React.ComponentProps<
     typeof FilterModal
   >["keywordsDisplayName"],
-  defaultOpen = true
+  defaultOpen = true,
+  overrides: Partial<React.ComponentProps<typeof FilterModal>> = {}
 ) =>
   render(
     <VisualEditorProvider templateProps={{ document: { locale: "fr" } }}>
@@ -103,16 +104,43 @@ const renderFilterModal = (
           showDistanceOptions={false}
           selectedDistanceOption={null}
           handleOpenNowClick={vi.fn()}
+          showOptedInOption={false}
+          isOptedInSelected={false}
+          handleOptedInClick={vi.fn()}
           handleDistanceClick={vi.fn()}
           handleClearFiltersClick={vi.fn()}
           accentColorCssValue="#000"
           keywordsDisplayName={keywordsDisplayName}
+          {...overrides}
         />
       </Dialog.Root>
     </VisualEditorProvider>
   );
 
 describe("FilterModal", () => {
+  it.each([false, true])(
+    "renders the Opted In checkbox with selection %s",
+    (selected) => {
+      const onChange = vi.fn();
+      renderFilterModal(undefined, true, {
+        showOptedInOption: true,
+        isOptedInSelected: selected,
+        handleOptedInClick: onChange,
+      });
+
+      const checkbox = screen.getByRole("checkbox");
+      expect(checkbox).toHaveAccessibleName();
+      expect((checkbox as HTMLInputElement).checked).toBe(selected);
+      fireEvent.click(checkbox);
+      expect(onChange).toHaveBeenCalledWith(!selected);
+    }
+  );
+
+  it("hides Opted In when disabled", () => {
+    renderFilterModal();
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+  });
+
   it("uses the current-locale display name only for the Keywords facet", () => {
     renderFilterModal({
       en: "Store Type",

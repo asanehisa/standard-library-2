@@ -77,6 +77,8 @@
   "openNow": "现在打开",
   "opensAtTime": "开放时间：{{time}}",
   "opensAtTimeWeek": "开放时间：{{time}} {{dayOfWeek}}",
+  "optInStatus": "同意状态",
+  "optedIn": "已同意",
   "phone": "电话",
   "photoGallery": "照片库",
   "primaryHeaderLinks": "主要标题链接",

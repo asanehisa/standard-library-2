@@ -80,6 +80,8 @@
   "openNow": "Atvērts tagad",
   "opensAtTime": "Tiek atvērts plkst. {{time}}",
   "opensAtTimeWeek": "Tiek atvērts plkst. {{time}} {{dayOfWeek}}",
+  "optInStatus": "Piekrišanas statuss",
+  "optedIn": "Piekrišana sniegta",
   "phone": "Telefons",
   "photoGallery": "Foto galerija",
   "primaryHeaderLinks": "Primārās galvenes saites",

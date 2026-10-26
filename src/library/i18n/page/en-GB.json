@@ -77,6 +77,8 @@
   "openNow": "Open Now",
   "opensAtTime": "Opens at {{time}}",
   "opensAtTimeWeek": "Opens at {{time}} {{dayOfWeek}}",
+  "optInStatus": "Opt-In Status",
+  "optedIn": "Opted In",
   "phone": "Phone",
   "photoGallery": "Photo Gallery",
   "primaryHeaderLinks": "Primary Header Links",

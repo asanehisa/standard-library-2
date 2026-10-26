@@ -77,6 +77,8 @@
   "openNow": "Avoinna nyt",
   "opensAtTime": "Avautuu {{time}}",
   "opensAtTimeWeek": "Avautuu {{time}} {{dayOfWeek}}",
+  "optInStatus": "Suostumuksen tila",
+  "optedIn": "Suostumus annettu",
   "phone": "Puhelin",
   "photoGallery": "Valokuvagalleria",
   "primaryHeaderLinks": "Ensisijaiset otsikkolinkit",

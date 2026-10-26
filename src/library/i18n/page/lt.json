@@ -87,6 +87,8 @@
   "openNow": "Atidarykite dabar",
   "opensAtTime": "Atidaroma {{time}}",
   "opensAtTimeWeek": "Atidaroma {{time}} {{dayOfWeek}}",
+  "optInStatus": "Sutikimo būsena",
+  "optedIn": "Sutikimas duotas",
   "phone": "Telefonas",
   "photoGallery": "Nuotraukų galerija",
   "primaryHeaderLinks": "Pirminės antraštės nuorodos",
